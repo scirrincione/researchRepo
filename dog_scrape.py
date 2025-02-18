@@ -12,7 +12,7 @@ from datetime import datetime
 
 def get_xlsx(sheet, sheet_name):
     driver=webdriver.Chrome()
-    df = pd.read_excel("tweet_ids.xlsx", sheet_name=sheet_name)
+    df = pd.read_excel("new_tweet_ids.xlsx", sheet_name=sheet_name)
     rowC = 0
     sheet.write_string(rowC, 0, "ID")
     sheet.write_string(rowC, 1, "tweet")
@@ -214,7 +214,7 @@ def getOneTweet():
     print(extract_tweet_id_regex(tweet['href']))
 
 def get_all_ids():
-    tweet_workbook = xlsxwriter.Workbook("tweet_ids.xlsx")
+    tweet_workbook = xlsxwriter.Workbook("new_tweet_ids.xlsx")
     sheets = ["Australia_Posts", "India_Posts", "Nigeria_Posts", "Philippines_Posts", "South_Africa_Posts", "UK_Posts", "US_Posts"]
     for sheet in sheets:
         wsheet = tweet_workbook.add_worksheet(sheet)
@@ -222,11 +222,10 @@ def get_all_ids():
     tweet_workbook.close()
 
 def get_all_replies():
-    tweet_workbook = xlsxwriter.Workbook("tweet_replies.xlsx")
+    tweet_workbook = xlsxwriter.Workbook("new_tweet_replies.xlsx")
     sheets = ["Australia_Posts", "India_Posts", "Nigeria_Posts", "Philippines_Posts", "South_Africa_Posts", "UK_Posts", "US_Posts"]
     for sheet in sheets:
         wsheet = tweet_workbook.add_worksheet(sheet)
         get_xlsx(wsheet, sheet)
     tweet_workbook.close()
 
-getOneTweet()
