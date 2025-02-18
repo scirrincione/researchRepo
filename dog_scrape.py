@@ -213,6 +213,20 @@ def getOneTweet():
     print(date_text)
     print(extract_tweet_id_regex(tweet['href']))
 
+def getUserHandle(userID):
+    driver=webdriver.Chrome()
+    url = "https://nitter.net/intent/user?user_id="+userID
+    driver.get(url)
+    resp = driver.page_source
+    time.sleep(2)
+    driver.close()
+    soup = BeautifulSoup(resp, 'html.parser')
+    handle = soup.find("a", attrs={'class':'profile-card-username'})
+    print(handle.text[1:])
+
+def getUserHandleTweet(tweetID):
+    driver=webdriver.Chrome()
+
 def get_all_ids():
     tweet_workbook = xlsxwriter.Workbook("new_tweet_ids.xlsx")
     sheets = ["Australia_Posts", "India_Posts", "Nigeria_Posts", "Philippines_Posts", "South_Africa_Posts", "UK_Posts", "US_Posts"]
@@ -229,3 +243,4 @@ def get_all_replies():
         get_xlsx(wsheet, sheet)
     tweet_workbook.close()
 
+getUserHandle("2609400548")
