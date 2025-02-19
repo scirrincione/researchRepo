@@ -91,21 +91,28 @@ def getTweetIDs_xlsx(tweet_workbook, sheet, sheet_name):
         driver.get(url)
 
         resp = driver.page_source
-        time.sleep(1)
+        time.sleep(2)
         soup = BeautifulSoup(resp, 'html.parser')
         tweet = soup.find("a", attrs={'class':'tweet-link'})
+        url = "https://nitter.net/intent/user?user_id="+str(row["user_id"])
+        driver.get(url)
+        resp = driver.page_source
+        time.sleep(2)
+        soup = BeautifulSoup(resp, 'html.parser')
         handle = soup.find("a", attrs={'class':'profile-card-username'})
         #date = soup.find("div", attrs)
         if tweet is None:
             sheet.write_string(index+1, text_col, row["tweet_text"])
             no_tweet =  "No tweet found "+ str(no_tweet_count)
             sheet.write_string(index+1, id_col, no_tweet)
-            sheet.write_string(index+1, user_col, handle[1:])
             no_tweet_count += 1
         else:
             sheet.write_string(index+1, text_col, row["tweet_text"])
             sheet.write(index+1, id_col, extract_tweet_id_regex(tweet['href']))
-            sheet.write_string(index+1, user_col, handle[1:])
+        if handle is not None:
+            sheet.write_string(index+1, user_col, handle.text[1:])
+        else:
+            sheet.write_string(index+1, user_col, "No user found")
             
         
     
@@ -180,4 +187,24 @@ def get_all_replies():
         get_xlsx(wsheet, sheet)
     tweet_workbook.close()
 
-getUserHandleTweet("1575965103144697856")
+def getReplyString(lineToRead):
+    driver=webdriver.Chrome()
+    df = pd.read_excel("new_tweet_ids.xlsx", sheet_name="Australia_Posts")
+    id = df.iloc[lineToRead]["tweet_id"]
+    print(id)
+    handle = df.iloc[lineToRead]["user_handle"]
+    url = "https://nitter.net/anyuser/status/"+id
+    driver.get(url)
+    resp = driver.page_source
+    time.sleep(2)
+    driver.close()
+    soup = BeautifulSoup(resp, 'html.parser')
+    #this method of finding the handle can find the tweet from the previous threat, make sure it looks at main tweet in order to get the correct handle
+    found_handle = soup.find("a", attrs={'class':'username'})
+    print("Correct handle: ", handle, " Handle found from tweet: ", found_handle.text[1:])
+    replies = soup.find_all(attrs={'class':'reply thread thread-line'})
+    cleaned_replies = [[line.strip() for line in reply.text.split("\n") if line.strip()] for reply in replies]
+    print(cleaned_replies)
+
+
+getReplyString(22)

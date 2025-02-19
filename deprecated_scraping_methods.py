@@ -7,6 +7,7 @@ import time
 import re
 import xlsxwriter
 from datetime import datetime
+from dog_scrape import extract_tweet_id_regex
 
 def get_csv():
     driver=webdriver.Chrome()
