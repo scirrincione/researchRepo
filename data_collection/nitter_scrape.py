@@ -1,13 +1,9 @@
 from bs4 import BeautifulSoup
 from selenium import webdriver
-import csv
-import os
 import pandas as pd
 import time
 import re
 import xlsxwriter
-from datetime import datetime
-from typing_extensions import TypedDict
 
 
 def get_xlsx(sheet, sheet_name):
@@ -37,7 +33,7 @@ def get_xlsx(sheet, sheet_name):
             driver.get(target_url)
 
             resp = driver.page_source
-            time.sleep(2)
+            time.sleep(3)
             soup = BeautifulSoup(resp, 'html.parser')
             handle_soup = soup.find("div", attrs={'class':'main-tweet'})
             handle = None
@@ -71,26 +67,27 @@ def get_xlsx(sheet, sheet_name):
                 
                 reply_list = []
                 for reply in replies:
-                    comment_count = reply.find(attrs={'class':'icon-comment'}).text
+                    stats = replies[0].find_all(attrs={'class':'icon-container'})
+                    comment_count = stats[0].text
                     if comment_count == "":
                         comment_count = 0
-                    retweet_count = reply.find(attrs={'class':'icon-retweet'}).text
+                    retweet_count = stats[1].text
                     if retweet_count == "":
                         retweet_count = 0
-                    quote_count = reply.find(attrs={'class':'icon-quote'}).text
+                    quote_count = stats[2].text
                     if quote_count == "":
                         quote_count = 0
-                    heart_count = reply.find(attrs={'class':'icon-heart'}).text
+                    heart_count = stats[3].text
                     if heart_count == "":
                         heart_count = 0
                     tweet_body = replies[0].find(attrs={'class':'tweet-content media-body'})
                     handle = replies[0].find(attrs={'class':'username'})
-                    reply_list.append("comment_count: " + str(comment_count))
-                    reply_list.append("retweet_count: " + str(retweet_count))
-                    reply_list.append("quote_count: " + str(quote_count))
-                    reply_list.append("heart_count: " + str(heart_count))
-                    reply_list.append("tweet_body: \"" + tweet_body.text + "\"")
-                    reply_list.append("handle: " + handle.text[1:])
+                    reply_list.append(("comment_count", comment_count))
+                    reply_list.append(("retweet_count", retweet_count))
+                    reply_list.append(("quote_count", quote_count))
+                    reply_list.append(("heart_count", heart_count))
+                    reply_list.append(("tweet_body", tweet_body.text))
+                    reply_list.append(("handle", handle.text[1:]))
                 
                 sheet.write_string(rowC, 0, id)
                 sheet.write_string(rowC, 1, row["user_handle"])
@@ -235,29 +232,29 @@ def get_all_ids():
     tweet_workbook.close()
 
 def get_all_replies():
-    tweet_workbook = xlsxwriter.Workbook("final_tweet_replies.xlsx")
+    tweet_workbook = xlsxwriter.Workbook("tuple_tweet_replies.xlsx")
     sheets = ["Australia_Posts", "India_Posts", "Nigeria_Posts", "Philippines_Posts", "South_Africa_Posts", "UK_Posts", "US_Posts"]
     for sheet in sheets:
         wsheet = tweet_workbook.add_worksheet(sheet)
         get_xlsx(wsheet, sheet)
     tweet_workbook.close()
 
-def getReplyString(lineToRead):
+def getReplyString(id):
     driver=webdriver.Chrome()
     df = pd.read_excel("final_tweet_ids.xlsx", sheet_name="Australia_Posts")
-    id = df.iloc[lineToRead]["tweet_id"]
-    print(id)
-    handle = df.iloc[lineToRead]["user_handle"]
-    url = "https://nitter.net/anyuser/status/"+id
+    
+    
+    #handle = df.iloc[lineToRead]["user_handle"]
+    url = "https://nitter.net/anyuser/status/"+str(id)
     driver.get(url)
     resp = driver.page_source
-    time.sleep(100)
+    time.sleep(2)
     driver.close()
     soup = BeautifulSoup(resp, 'html.parser')
     
-    handle_soup = soup.find("div", attrs={'class':'main-tweet'})
-    found_handle = handle_soup.find("a", attrs={'class':'username'})
-    print("Correct handle: ", handle, " Handle found from tweet: ", found_handle.text[1:])
+    #handle_soup = soup.find("div", attrs={'class':'main-tweet'})
+    #found_handle = handle_soup.find("a", attrs={'class':'username'})
+    #print("Correct handle: ", handle, " Handle found from tweet: ", found_handle.text[1:])
 
     main_soup = soup.find("div", attrs = {'class':'main-tweet'})
     comments = main_soup.find_all("span",  attrs = {'class':'tweet-stat'})
@@ -269,7 +266,8 @@ def getReplyString(lineToRead):
     retweet_count = replies[0].find(attrs={'class':'icon-retweet'})
     tweet = replies[0].find(attrs={'class':'tweet-content media-body'})
     handle = replies[0].find(attrs={'class':'username'})
-    print(handle.text, ": ", tweet.text)
+    comment_count = replies[0].find_all(attrs={'class':'icon-container'})
+    print(comment_count[1].text, ", ", tweet.text)
     # Reply formats:
     # This tweet is unavailable (1 item)
     # Name, handle, date, text, comments (optional), reposts (optional), quotes (optional), likes (optional) (4-8 items)
@@ -363,4 +361,4 @@ def get_missing_tweets():
 
     
 get_all_replies()
-#getReplyString(9)
+#getReplyString(1335338110419259393)
