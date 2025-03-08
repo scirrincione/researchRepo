@@ -367,6 +367,176 @@ def get_missing_tweets():
             
     clean_workbook.close()
 
+
+def getTweetIDs_csv(tweet_workbook, sheet, country, num):
+    driver=webdriver.Chrome()
+
+    folder_name = country+"_negative"
+    csv_name=country+"_to_"+str(num)
+    df = pd.read_csv("../Negative/Negative/"+folder_name+"/"+csv_name+".csv")
+    no_tweet_count = 0
+    text_col = 0
+    id_col = 1
+    user_col = 2
+    sheet.write_string(0, text_col, "tweet_text")
+    sheet.write_string(0, id_col, "tweet_id")
+    sheet.write_string(0, user_col, "user_handle")
+
+    for index, row in df.iterrows():
+        url = "https://nitter.net/intent/user?user_id="+str(row["user_id"])
+        driver.get(url)
+        resp = driver.page_source
+        time.sleep(1)
+        soup = BeautifulSoup(resp, 'html.parser')
+        handle = soup.find("a", attrs={'class':'profile-card-username'})
+
+        text = row["tweet_text"]#"\"" + row["tweet_text"] + "\""
+        text_formatted = text.replace(" ", "+")
+        text_formatted = text_formatted.replace("\n", "")
+        text_formatted = text_formatted.replace("@", "%40")
+        text_formatted = text_formatted.replace(",", "%2C")
+        text_formatted = text_formatted.replace("#", "%23")
+        text_formatted = text_formatted.replace("'", "%27")
+        text_formatted = text_formatted.replace(";", "%3B")
+        text_formatted = remove_links(text_formatted)
+        if handle is not None:
+            url = "https://nitter.net/search?f=tweets&q=" + text_formatted + "(from%3A" + handle.text[1:] + ")&since=&until=&near="
+        else:
+            url = "https://nitter.net/search?f=tweets&q=" + text_formatted + "&since=&until=&near="
+        driver.get(url)
+
+        resp = driver.page_source
+        time.sleep(2)
+        soup = BeautifulSoup(resp, 'html.parser')
+        tweet = soup.find("a", attrs={'class':'tweet-link'})
+        
+        #date = soup.find("div", attrs)
+        if tweet is None:
+            sheet.write_string(index+1, text_col, row["tweet_text"])
+            no_tweet =  "No tweet found "+ str(no_tweet_count)
+            sheet.write_string(index+1, id_col, no_tweet)
+            no_tweet_count += 1
+        else:
+            sheet.write_string(index+1, text_col, row["tweet_text"])
+            sheet.write(index+1, id_col, extract_tweet_id_regex(tweet['href']))
+        if handle is not None:
+            sheet.write_string(index+1, user_col, handle.text[1:])
+        else:
+            sheet.write_string(index+1, user_col, "No user found")
+        
+        
     
-get_all_replies()
+    driver.close()
+
+def getTweetIDs_negative():
+    countries = ["Australia"]
+    num = 1
+    tweet_workbook = xlsxwriter.Workbook("negative_scraping/negative_tweet_ids.xlsx")
+
+    for country in countries:
+        for i in range(1,num+1):
+            wsheet = tweet_workbook.add_worksheet((country+"_"+str(i)))
+            getTweetIDs_csv(tweet_workbook, wsheet, country, i)
+    tweet_workbook.close()
+
+
+def get_csvs(country, csv_name, sheet):
+    driver=webdriver.Chrome()
+    df = pd.read_csv("../Negative/Negative/"+country+"_negative/"+csv_name)
+    rowC = 0
+    sheet.write_string(rowC, 0, "tweet_id")
+    sheet.write_string(rowC, 1, "user_id")
+    sheet.write_string(rowC, 2, "tweet")
+    sheet.write_string(rowC, 3, "comment_number")
+    sheet.write_string(rowC, 4, "retweet_number")
+    sheet.write_string(rowC, 5, "quote_number")
+    sheet.write_string(rowC, 6, "like_number")
+    sheet.write_string(rowC, 7, "replies")
+
+    # Reply format: {handle: xxx, comments: xxx, retweets: xxx, quotes: xxx, likes: xxx, replies: xxx, reply: "xxx"}
+    
+    rowC += 1
+
+    for index,row in df.iterrows():
+       
+        id = row["tweet_id"]
+        target_url = "https://nitter.net/anyuser/status/"+str(id)
+
+        driver.get(target_url)
+
+        resp = driver.page_source
+        time.sleep(1)
+        soup = BeautifulSoup(resp, 'html.parser')
+        
+        
+            #main tweet info
+        main_soup = soup.find("div", attrs = {'class':'main-tweet'})
+        
+        if main_soup!=None:
+            stats = main_soup.find_all("span",  attrs = {'class':'tweet-stat'})
+            if stats[0].text == "":
+                sheet.write_string(rowC, 3, "0")
+            else:
+                sheet.write_string(rowC, 3, stats[0].text)
+            if stats[1].text == "":
+                sheet.write_string(rowC, 4, "0")
+            else:
+                sheet.write_string(rowC, 4, stats[1].text)
+            if stats[2].text == "":
+                sheet.write_string(rowC, 5, "0")
+            else:
+                sheet.write_string(rowC, 5, stats[2].text)
+            if stats[3].text == "":
+                sheet.write_string(rowC, 6, "0")
+            else:
+                sheet.write_string(rowC, 6, stats[3].text)
+
+        if soup!=None:
+            replies = soup.find_all(attrs={'class':'reply thread thread-line'})
+        
+        reply_list = []
+        for reply in replies:
+            if reply != None:
+                stats = reply.find_all(attrs={'class':'icon-container'})
+            comment_count = stats[0].text
+            if comment_count == "":
+                comment_count = 0
+            retweet_count = stats[1].text
+            if retweet_count == "":
+                retweet_count = 0
+            quote_count = stats[2].text
+            if quote_count == "":
+                quote_count = 0
+            heart_count = stats[3].text
+            if heart_count == "":
+                heart_count = 0
+            tweet_body = reply.find(attrs={'class':'tweet-content media-body'})
+            handle = reply.find(attrs={'class':'username'})
+            if tweet_body not in replies:
+                reply_list.append(("comment_count", comment_count))
+                reply_list.append(("retweet_count", retweet_count))
+                reply_list.append(("quote_count", quote_count))
+                reply_list.append(("heart_count", heart_count))
+                reply_list.append(("tweet_body", tweet_body.text))
+                reply_list.append(("handle", handle.text[1:]))
+        
+            sheet.write_string(rowC, 0, str(id))
+            sheet.write_string(rowC, 1, str(row["user_id"]))
+            sheet.write_string(rowC, 2, row["tweet_text"])
+            sheet.write_string(rowC, 7, str(reply_list))
+            rowC += 1
+    driver.close()
+
+def get_all_replies_csv():
+    countries = ["Australia"]
+    num = 8
+    for country in countries:
+        tweet_workbook = xlsxwriter.Workbook(country+".xlsx")
+        for i in range(1,num+1):
+            csv_name = country+"_to_"+str(i)
+            wsheet = tweet_workbook.add_worksheet(csv_name)
+            get_csvs(country, (csv_name+".csv"), wsheet)
+        tweet_workbook.close()
+
+get_all_replies_csv()
 #getReplyString(921618405765005312)
